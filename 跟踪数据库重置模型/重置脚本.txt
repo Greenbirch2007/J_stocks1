@@ -1,0 +1,7 @@
+
+
+
+drop database JS_Mons  ;
+create database  JS_Mons  ;
+use JS_Mons;
+create table js_industry (id int not null primary key auto_increment, in0251 float ,in0252 float ,in0253 float ,in0254 float ,in0255 float ,in0256 float ,in0257 float ,in0258 float ,in0259 float ,in0260 float ,in0261 float ,in0262 float ,in0263 float ,in0264 float ,in0265 float ,in0266 float ,in0267 float ,in0268 float ,in0269 float ,in0270 float ,in0271 float ,in0272 float ,in0273 float ,in0274 float ,in0275 float ,in0276 float ,in0277 float ,in0278 float ,in0279 float ,in0280 float ,in0281 float ,in0282 float ,in0283 float , LastTime timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP ) engine=InnoDB  charset=utf8;
