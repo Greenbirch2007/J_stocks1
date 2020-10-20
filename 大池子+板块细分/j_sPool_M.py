@@ -1,0 +1,172 @@
+
+
+
+import datetime
+import time
+
+import pymysql
+import requests
+from lxml import etree
+import json
+from queue import Queue
+import threading
+from requests.exceptions import RequestException
+
+
+
+
+from retrying import retry
+
+def retry_if_io_error(exception):
+    return isinstance(exception, ZeroDivisionError)
+
+
+
+
+
+
+'''
+1. 创建 URL队列, 响应队列, 数据队列 在init方法中
+2. 在生成URL列表中方法中,把URL添加URL队列中
+3. 在请求页面的方法中,从URL队列中取出URL执行,把获取到的响应数据添加响应队列中
+4. 在处理数据的方法中,从响应队列中取出页面内容进行解析, 把解析结果存储数据队列中
+5. 在保存数据的方法中, 从数据队列中取出数据,进行保存
+6. 开启几个线程来执行上面的方法
+'''
+
+def run_forever(func):
+    def wrapper(obj):
+        while True:
+            func(obj)
+    return wrapper
+
+
+def RemoveDot(item):
+    f_l = []
+    for it in item:
+
+        f_str = "".join(it.split(","))
+        ff_str = f_str +"00"
+        f_l.append(ff_str)
+
+    return f_l
+
+def remove_douhao(num):
+    num1 = "".join(num.split(","))
+    f_num = str(num1)
+    return f_num
+def remove_block(items):
+    new_items = []
+    for it in items:
+        f = "".join(it.split())
+        new_items.append(f)
+    return new_items
+
+
+class JSPool_M(object):
+
+    def __init__(self,url):
+        self.url = url
+
+    def page_request(self):
+        ''' 发送请求获取数据 '''
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36'
+        }
+
+        response = requests.get(self.url,headers=headers)
+        if response.status_code == 200:
+            html = response.text
+            return html
+        else:
+            pass
+
+    def page_parse_(self):
+        '''根据页面内容使用lxml解析数据, 获取段子列表'''
+
+
+        html  = self.page_request()
+        element = etree.HTML(html)
+
+        now_price = element.xpath(
+            '//*[@id="layout"]/div[2]/div[3]/div[2]/div/div[1]/div/div/div[1]/div[2]/div/div[2]/div/text()')
+        f_price = RemoveDot(remove_block(now_price))
+        big_list.append(f_price[0])
+        return big_list
+
+
+
+
+def insertDB(content):
+    connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='123456', db='JS_Mons',
+                                 charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
+
+    cursor = connection.cursor()
+
+    try:
+        # 用一个列表解析
+        f_jsp = ["J" + str(cod) for cod in jl]
+        sp_func = lambda x: ",".join(x)
+        f_lcode = sp_func(f_jsp)
+
+        f_ls = "%s," * len(jl)# 这里错了
+        cursor.executemany('insert into sp_LJ ({0}) values ({1})'.format(f_lcode, f_ls[:-1]), content)
+        connection.commit()
+        connection.commit()
+        connection.close()
+        print('向MySQL中添加数据成功！')
+    except TypeError:
+        pass
+
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    jl = [6838,4347,6428,3344,1743,4557,9060,9895,6035,6924,6096,5922,7813,2160,9629,1914,6239,9873,5440,5410,8023,9479,7061,7048,1885,8747,6267,9913,2831,6709,6064,2929,1418,6505,6651,6920,7004,7069,7681,4320,3661,3854,3440,2685,3042,3863,1909,9755,6088,4439,2195,4686,3267,8068,9624,4519,7814,3991,7421,7094,9820,6625,3674,3264,4364,3161,2471,3941,4644,1443,7702,8130,4776,9698,6754,9428,4481,3482,7928,6297,9408,4427,6368,5658,4483,8072,3150,6840,2226,4761,7073,3479,9867,8111,9057,6888,6033,4523,3416,3020,3135,3107,2904,9780,3802,4396,9519,7199,3067,3393,6670,9849,6362,7974,4091,9621,1844,6089,3186,8356,7033,4832,3677,9702,9768,6677,7883,4996,3804,2445,6564,3630,7518,6867,6489,7745,8157,6727,1419,9416,9742,3322,2375,7820,8524,6544,5284,6086,3934,3771,3021,6323,3675,2925,9232,2491,7638,9450,9889,9797,8362,2060,9783,6379,9903,3912,7958,8151,9709,4828,4107,9279,6078,6095,3031,7740,3697,7044,2737,7192,6741,1973,3925,3238,3096,2813,8108,6355,8056,3769,8349,7925,7595,6629,8005,7780,7921,3678,3371,3151,6973,9697,5070,3302,3937,3762,9740,4316,8934,4709,4251,1949,7060,9090,9658,4800,2384,3386,3916,3046,2773,4848,4812,5444,3288,2498,7979,9782,2418,8217,9656,9792,9716,6376,2157,3993,4726,1775,1946,7734,3452,3431,7532,9692,9639,3254,2169,2150,2130,2385,6067,7037]
+
+    big_list = []
+
+
+    for it in jl:
+        url = 'https://minkabu.jp/stock/{0}'.format(it)
+        print(url)
+        jsp = JSPool_M(url)# 这里把请求和解析都进行了处理
+        jsp.page_parse_()
+    ff_l = []
+    f_tup = tuple(big_list)
+    ff_l.append((f_tup))
+    print(ff_l)
+    insertDB(ff_l)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#  drop table sp_LJ;
+ #create table sp_LJ(id int not null primary key auto_increment, J6838 FLOAT,J4347 FLOAT,J6428 FLOAT,J3344 FLOAT,J1743 FLOAT,J4557 FLOAT,J9060 FLOAT,J9895 FLOAT,J6035 FLOAT,J6924 FLOAT,J6096 FLOAT,J5922 FLOAT,J7813 FLOAT,J2160 FLOAT,J9629 FLOAT,J1914 FLOAT,J6239 FLOAT,J9873 FLOAT,J5440 FLOAT,J5410 FLOAT,J8023 FLOAT,J9479 FLOAT,J7061 FLOAT,J7048 FLOAT,J1885 FLOAT,J8747 FLOAT,J6267 FLOAT,J9913 FLOAT,J2831 FLOAT,J6709 FLOAT,J6064 FLOAT,J2929 FLOAT,J1418 FLOAT,J6505 FLOAT,J6651 FLOAT,J6920 FLOAT,J7004 FLOAT,J7069 FLOAT,J7681 FLOAT,J4320 FLOAT,J3661 FLOAT,J3854 FLOAT,J3440 FLOAT,J2685 FLOAT,J3042 FLOAT,J3863 FLOAT,J1909 FLOAT,J9755 FLOAT,J6088 FLOAT,J4439 FLOAT,J2195 FLOAT,J4686 FLOAT,J3267 FLOAT,J8068 FLOAT,J9624 FLOAT,J4519 FLOAT,J7814 FLOAT,J3991 FLOAT,J7421 FLOAT,J7094 FLOAT,J9820 FLOAT,J6625 FLOAT,J3674 FLOAT,J3264 FLOAT,J4364 FLOAT,J3161 FLOAT,J2471 FLOAT,J3941 FLOAT,J4644 FLOAT,J1443 FLOAT,J7702 FLOAT,J8130 FLOAT,J4776 FLOAT,J9698 FLOAT,J6754 FLOAT,J9428 FLOAT,J4481 FLOAT,J3482 FLOAT,J7928 FLOAT,J6297 FLOAT,J9408 FLOAT,J4427 FLOAT,J6368 FLOAT,J5658 FLOAT,J4483 FLOAT,J8072 FLOAT,J3150 FLOAT,J6840 FLOAT,J2226 FLOAT,J4761 FLOAT,J7073 FLOAT,J3479 FLOAT,J9867 FLOAT,J8111 FLOAT,J9057 FLOAT,J6888 FLOAT,J6033 FLOAT,J4523 FLOAT,J3416 FLOAT,J3020 FLOAT,J3135 FLOAT,J3107 FLOAT,J2904 FLOAT,J9780 FLOAT,J3802 FLOAT,J4396 FLOAT,J9519 FLOAT,J7199 FLOAT,J3067 FLOAT,J3393 FLOAT,J6670 FLOAT,J9849 FLOAT,J6362 FLOAT,J7974 FLOAT,J4091 FLOAT,J9621 FLOAT,J1844 FLOAT,J6089 FLOAT,J3186 FLOAT,J8356 FLOAT,J7033 FLOAT,J4832 FLOAT,J3677 FLOAT,J9702 FLOAT,J9768 FLOAT,J6677 FLOAT,J7883 FLOAT,J4996 FLOAT,J3804 FLOAT,J2445 FLOAT,J6564 FLOAT,J3630 FLOAT,J7518 FLOAT,J6867 FLOAT,J6489 FLOAT,J7745 FLOAT,J8157 FLOAT,J6727 FLOAT,J1419 FLOAT,J9416 FLOAT,J9742 FLOAT,J3322 FLOAT,J2375 FLOAT,J7820 FLOAT,J8524 FLOAT,J6544 FLOAT,J5284 FLOAT,J6086 FLOAT,J3934 FLOAT,J3771 FLOAT,J3021 FLOAT,J6323 FLOAT,J3675 FLOAT,J2925 FLOAT,J9232 FLOAT,J2491 FLOAT,J7638 FLOAT,J9450 FLOAT,J9889 FLOAT,J9797 FLOAT,J8362 FLOAT,J2060 FLOAT,J9783 FLOAT,J6379 FLOAT,J9903 FLOAT,J3912 FLOAT,J7958 FLOAT,J8151 FLOAT,J9709 FLOAT,J4828 FLOAT,J4107 FLOAT,J9279 FLOAT,J6078 FLOAT,J6095 FLOAT,J3031 FLOAT,J7740 FLOAT,J3697 FLOAT,J7044 FLOAT,J2737 FLOAT,J7192 FLOAT,J6741 FLOAT,J1973 FLOAT,J3925 FLOAT,J3238 FLOAT,J3096 FLOAT,J2813 FLOAT,J8108 FLOAT,J6355 FLOAT,J8056 FLOAT,J3769 FLOAT,J8349 FLOAT,J7925 FLOAT,J7595 FLOAT,J6629 FLOAT,J8005 FLOAT,J7780 FLOAT,J7921 FLOAT,J3678 FLOAT,J3371 FLOAT,J3151 FLOAT,J6973 FLOAT,J9697 FLOAT,J5070 FLOAT,J3302 FLOAT,J3937 FLOAT,J3762 FLOAT,J9740 FLOAT,J4316 FLOAT,J8934 FLOAT,J4709 FLOAT,J4251 FLOAT,J1949 FLOAT,J7060 FLOAT,J9090 FLOAT,J9658 FLOAT,J4800 FLOAT,J2384 FLOAT,J3386 FLOAT,J3916 FLOAT,J3046 FLOAT,J2773 FLOAT,J4848 FLOAT,J4812 FLOAT,J5444 FLOAT,J3288 FLOAT,J2498 FLOAT,J7979 FLOAT,J9782 FLOAT,J2418 FLOAT,J8217 FLOAT,J9656 FLOAT,J9792 FLOAT,J9716 FLOAT,J6376 FLOAT,J2157 FLOAT,J3993 FLOAT,J4726 FLOAT,J1775 FLOAT,J1946 FLOAT,J7734 FLOAT,J3452 FLOAT,J3431 FLOAT,J7532 FLOAT,J9692 FLOAT,J9639 FLOAT,J3254 FLOAT,J2169 FLOAT,J2150 FLOAT,J2130 FLOAT,J2385 FLOAT,J6067 FLOAT,J7037 FLOAT,LastTime timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP ) engine=InnoDB  charset=utf8;
+
+
+
+
